@@ -20,7 +20,7 @@ cd ios && pod install && cd ..
 > - iOS deployment target `>= 15.1`
 > - Android `minSdkVersion >= 21`
 
-## `react-native-permissions` configuration
+### `react-native-permissions` configuration
 
 This library requests camera permission using `react-native-permissions`.
 
@@ -33,9 +33,9 @@ How permission is handled:
 
 Please refer [react-native-permissions](https://www.npmjs.com/package/react-native-permissions) for installation and uses.
 
-## Need to declare Camera Permission on Android and iOS native side:
+### Need to declare Camera Permission on Android and iOS native side
 
-### Android (`android/app/src/main/AndroidManifest.xml`)
+#### Android (`android/app/src/main/AndroidManifest.xml`)
 
 This library declares camera permission in its own manifest and it should be merged into your app automatically. If your setup disables manifest merging or you want to be explicit, ensure your app has:
 
@@ -43,7 +43,7 @@ This library declares camera permission in its own manifest and it should be mer
 <uses-permission android:name="android.permission.CAMERA" />
 ```
 
-### iOS (`ios/<YourApp>/Info.plist`)
+#### iOS (`ios/<YourApp>/Info.plist`)
 
 Apple requires a user-facing reason string for camera usage. Add:
 
@@ -144,7 +144,7 @@ type ScanPaymentCardResult = {
 };
 ```
 
-### Conclusion
+## Conclusion
 
 - `cardNumber`: only numbers (spaces/dashes removed) and validated, so it’s safer to use in your checkout flow.
 - `cardHolderName`: best-effort name; some cards may not have a readable name, so it can be an empty string.
