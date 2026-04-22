@@ -1,6 +1,6 @@
 {
   "name": "react-native-card-detector",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Payment card scanning for React Native (Android Lens24 + iOS Vision OCR).",
   "main": "src/index.js",
   "repository": {
