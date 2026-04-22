@@ -1,8 +1,9 @@
-import { NativeModules, Alert, Linking } from 'react-native';
+import { NativeModules, Alert, Linking, Platform } from 'react-native';
 import { PERMISSIONS, request } from 'react-native-permissions';
-import { isAndroid } from './utils';
 
 const { CardScannerModule } = NativeModules;
+
+const isAndroid = Platform.OS == 'android';
 
 const digitsOnly = (value) => String(value || '').replace(/\D+/g, '');
 
@@ -72,13 +73,23 @@ const handleOpenDeviceSettings = () => {
   Linking.openSettings();
 };
 
-export const scanPaymentCard = async ({ permission }) => {
+export const scanPaymentCard = async ({ permission, scannerText } = {}) => {
   const status = await request(isAndroid ? PERMISSIONS.ANDROID.CAMERA : PERMISSIONS.IOS.CAMERA);
   if (status != 'granted') {
     handleCameraPermissionDenied(permission);
     return;
   };
-  let response = await CardScannerModule.scanCard();
+
+  const scan = async () => CardScannerModule.scanCard();
+  const scanWithOptions = async (options) => {
+    if (!options) return scan();
+    if (typeof CardScannerModule?.scanCardWithOptions === 'function') {
+      return CardScannerModule.scanCardWithOptions(options);
+    }
+    return scan();
+  };
+
+  let response = await scanWithOptions(scannerText);
   const cardNumberRaw = String(response?.cardNumber || '');
   const cardNumberDigits = digitsOnly(cardNumberRaw);
   if (!cardNumberDigits) {
@@ -92,9 +103,9 @@ export const scanPaymentCard = async ({ permission }) => {
     throw err;
   }
 
-  const expiry = normalizeExpiry(result?.expirationDate);
-  const holderName = normalizeHolderName(result?.cardHolderName);
-  const expirationDateRaw = String(result?.expirationDate || '');
+  const expiry = normalizeExpiry(response?.expirationDate);
+  const holderName = normalizeHolderName(response?.cardHolderName);
+  const expirationDateRaw = String(response?.expirationDate || '');
   const expirationDate = expiry?.isValid ? String(expiry?.raw || '') : expirationDateRaw;
 
   return {

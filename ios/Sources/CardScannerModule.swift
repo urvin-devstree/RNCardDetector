@@ -18,6 +18,11 @@ final class CardScannerModule: NSObject, RCTBridgeModule {
 
   @objc(scanCard:rejecter:)
   func scanCard(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    scanCardWithOptions(nil, resolver: resolve, rejecter: reject)
+  }
+
+  @objc(scanCardWithOptions:resolver:rejecter:)
+  func scanCardWithOptions(_ options: NSDictionary?, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
     DispatchQueue.main.async { [weak self] in
       guard let self else { return }
 
@@ -35,6 +40,7 @@ final class CardScannerModule: NSObject, RCTBridgeModule {
       self.pendingReject = reject
 
       let vc = CardScannerViewController()
+      vc.uiStrings = CardScannerUIStrings.from(options: options)
       vc.modalPresentationStyle = .fullScreen
 
       vc.onCancel = { [weak self] in

@@ -2,10 +2,43 @@ import AVFoundation
 import UIKit
 import Vision
 
+struct CardScannerUIStrings {
+  var hint: String = "Align your card inside the frame"
+  var statusLookingForCardNumber: String = "Looking for card number…"
+  var statusReadingHoldSteady: String = "Reading… hold steady (verifying number)"
+  var statusNumberFoundLookingForExpiry: String = "Number found. Looking for expiry…"
+  var cancel: String = "Cancel"
+  var done: String = "Done"
+  var torch: String = "Torch"
+
+  static func from(options: NSDictionary?) -> CardScannerUIStrings {
+    guard let options else { return CardScannerUIStrings() }
+    let dict = (options["ios"] as? NSDictionary) ?? options
+
+    func string(_ key: String) -> String? {
+      let raw = dict[key] as? String
+      let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      return trimmed.isEmpty ? nil : trimmed
+    }
+
+    var strings = CardScannerUIStrings()
+    strings.hint = string("hint") ?? strings.hint
+    strings.statusLookingForCardNumber = string("statusLookingForCardNumber") ?? strings.statusLookingForCardNumber
+    strings.statusReadingHoldSteady = string("statusReadingHoldSteady") ?? strings.statusReadingHoldSteady
+    strings.statusNumberFoundLookingForExpiry = string("statusNumberFoundLookingForExpiry") ?? strings.statusNumberFoundLookingForExpiry
+    strings.cancel = string("cancel") ?? strings.cancel
+    strings.done = string("done") ?? strings.done
+    strings.torch = string("torch") ?? strings.torch
+    return strings
+  }
+}
+
 final class CardScannerViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDelegate {
   var onResult: ((CardScanResult) -> Void)?
   var onCancel: (() -> Void)?
   var onError: ((Error) -> Void)?
+
+  var uiStrings = CardScannerUIStrings()
 
   private let captureSession = AVCaptureSession()
   private let videoOutput = AVCaptureVideoDataOutput()
@@ -68,13 +101,13 @@ final class CardScannerViewController: UIViewController, AVCaptureVideoDataOutpu
   }
 
   private func setupUI() {
-    hintLabel.text = "Align your card inside the frame"
+    hintLabel.text = uiStrings.hint
     hintLabel.textColor = .white
     hintLabel.font = .systemFont(ofSize: 15, weight: .semibold)
     hintLabel.textAlignment = .center
     hintLabel.numberOfLines = 2
 
-    statusLabel.text = "Looking for card number…"
+    statusLabel.text = uiStrings.statusLookingForCardNumber
     statusLabel.textColor = .white
     statusLabel.font = .systemFont(ofSize: 13, weight: .regular)
     statusLabel.textAlignment = .center
@@ -85,19 +118,19 @@ final class CardScannerViewController: UIViewController, AVCaptureVideoDataOutpu
     overlayView.layer.cornerRadius = 12
     overlayView.backgroundColor = .clear
 
-    cancelButton.setTitle("Cancel", for: .normal)
+    cancelButton.setTitle(uiStrings.cancel, for: .normal)
     cancelButton.tintColor = .white
     cancelButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
     cancelButton.addTarget(self, action: #selector(handleCancel), for: .touchUpInside)
 
-    doneButton.setTitle("Done", for: .normal)
+    doneButton.setTitle(uiStrings.done, for: .normal)
     doneButton.tintColor = .white
     doneButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
     doneButton.isEnabled = false
     doneButton.alpha = 0.5
     doneButton.addTarget(self, action: #selector(handleDone), for: .touchUpInside)
 
-    torchButton.setTitle("Torch", for: .normal)
+    torchButton.setTitle(uiStrings.torch, for: .normal)
     torchButton.tintColor = .white
     torchButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
     torchButton.addTarget(self, action: #selector(handleTorch), for: .touchUpInside)
@@ -401,7 +434,7 @@ final class CardScannerViewController: UIViewController, AVCaptureVideoDataOutpu
 
   private func updateUI() {
     if bestPAN.isEmpty {
-      statusLabel.text = "Looking for card number…"
+      statusLabel.text = uiStrings.statusLookingForCardNumber
       doneButton.isEnabled = false
       doneButton.alpha = 0.5
       return
@@ -414,9 +447,9 @@ final class CardScannerViewController: UIViewController, AVCaptureVideoDataOutpu
     if !bestName.isEmpty { parts.append("Name: \(bestName)") }
 
     if !luhnOK {
-      statusLabel.text = "Reading… hold steady (verifying number)"
+      statusLabel.text = uiStrings.statusReadingHoldSteady
     } else if bestExpiry.isEmpty {
-      statusLabel.text = "Number found. Looking for expiry…"
+      statusLabel.text = uiStrings.statusNumberFoundLookingForExpiry
     } else {
       statusLabel.text = parts.joined(separator: "   •   ")
     }

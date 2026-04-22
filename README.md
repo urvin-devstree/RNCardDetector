@@ -25,13 +25,34 @@ npm i react-native-permissions
 import { scanPaymentCard } from 'react-native-card-detector';
 
 const card = await scanPaymentCard();
-// or customize the permission denied dialog:
-// const card = await scanPaymentCard({
-//   permission: {
-//     title: 'Camera Permission',
-//     description: 'We need camera access to scan your payment card.'
-//   }
-// });
+
+Or customize the permission denied dialog:
+
+const card = await scanPaymentCard({
+  permission: {
+    title: 'Camera Permission',
+    description: 'We need camera access to scan your payment card.'
+  }
+});
+Or customize the scanner UI text (optional):
+
+const card = await scanPaymentCard({
+  scannerText: {
+    android: {
+      hint: 'Align the card in the frame',
+      toolbarTitle: 'Scan card',
+    },
+    ios: {
+      hint: 'Align your card inside the frame',
+      statusLookingForCardNumber: 'Looking for card number…',
+      statusReadingHoldSteady: 'Reading… hold steady (verifying number)',
+      statusNumberFoundLookingForExpiry: 'Number found. Looking for expiry…',
+      cancel: 'Cancel',
+      done: 'Done',
+      torch: 'Torch',
+    },
+  },
+});
 ```
 
 ## Permissions (react-native-permissions)

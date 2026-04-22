@@ -11,6 +11,7 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.bridge.ReadableMap
 import lens24.intent.Card
 import lens24.intent.ScanCardCallback
 import lens24.intent.ScanCardIntent
@@ -21,6 +22,8 @@ class CardScannerModule(private val reactContext: ReactApplicationContext) :
     companion object {
         private const val MODULE_NAME = "CardScannerModule"
         private const val REQUEST_CODE_SCAN_CARD = 49201
+        private const val DEFAULT_HINT = "Align the card in the frame"
+        private const val DEFAULT_TOOLBAR_TITLE = "Scan card"
     }
 
     private var pendingPromise: Promise? = null
@@ -51,6 +54,11 @@ class CardScannerModule(private val reactContext: ReactApplicationContext) :
 
     @ReactMethod
     fun scanCard(promise: Promise) {
+        scanCardWithOptions(null, promise)
+    }
+
+    @ReactMethod
+    fun scanCardWithOptions(options: ReadableMap?, promise: Promise) {
         val activity: Activity = reactContext.currentActivity ?: run {
             promise.reject("E_NO_ACTIVITY", "No current Activity. Is the app in foreground?")
             return
@@ -82,10 +90,19 @@ class CardScannerModule(private val reactContext: ReactApplicationContext) :
             clearPending()
         }.build()
 
+        val androidOptions =
+            if (options != null && options.hasKey("android") && !options.isNull("android")) {
+                options.getMap("android")
+            } else {
+                options
+            }
+        val hint = androidOptions.getNonBlankString("hint") ?: DEFAULT_HINT
+        val toolbarTitle = androidOptions.getNonBlankString("toolbarTitle") ?: DEFAULT_TOOLBAR_TITLE
+
         val intent =
             ScanCardIntent.Builder(activity).setScanCardHolder(true).setScanExpirationDate(true)
-                .setSaveCard(false).setVibrationEnabled(true).setHint("Align the card in the frame")
-                .setToolbarTitle("Scan card").build()
+                .setSaveCard(false).setVibrationEnabled(true).setHint(hint)
+                .setToolbarTitle(toolbarTitle).build()
 
         try {
             activity.startActivityForResult(intent, REQUEST_CODE_SCAN_CARD)
@@ -98,5 +115,13 @@ class CardScannerModule(private val reactContext: ReactApplicationContext) :
     private fun clearPending() {
         pendingPromise = null
         activityResultCallback = null
+    }
+
+    private fun ReadableMap?.getNonBlankString(key: String): String? {
+        if (this == null) return null
+        if (!this.hasKey(key) || this.isNull(key)) return null
+        val value = this.getString(key) ?: return null
+        val trimmed = value.trim()
+        return trimmed.ifEmpty { null }
     }
 }
