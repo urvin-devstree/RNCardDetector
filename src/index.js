@@ -92,13 +92,14 @@ export const scanPaymentCard = async ({ permission }) => {
     throw err;
   }
 
-  const expiry = normalizeExpiry(response?.expirationDate);
-  const holderName = normalizeHolderName(response?.cardHolderName);
+  const expiry = normalizeExpiry(result?.expirationDate);
+  const holderName = normalizeHolderName(result?.cardHolderName);
+  const expirationDateRaw = String(result?.expirationDate || '');
+  const expirationDate = expiry?.isValid ? String(expiry?.raw || '') : expirationDateRaw;
 
   return {
     cardNumber: cardNumberDigits,
     cardHolderName: holderName,
-    expiryMonth: expiry?.month,
-    expiryYear: expiry?.year
+    expirationDate
   };
 };
