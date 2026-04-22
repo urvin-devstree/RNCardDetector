@@ -4,16 +4,10 @@ A user-friendly yet highly customizable tool that lets you capture card details 
 
 It opens a native scanner screen, reads the text from the card, and returns a clean, predictable result for your React Native code.
 
-When scanning succeeds, you get:
-
-- `cardNumber` (digits only; Luhn validated)
-- `cardHolderName` (normalized + uppercased when possible)
-- `expirationDate` (normalized when possible)
-
 Behind the scenes:
 
-- Android uses the Lens24 scanner UI.
-- iOS uses Apple Vision OCR to recognize text from the camera feed.
+- Android uses the [Lens24](https://central.sonatype.com/artifact/io.github.vlasentiy/lens24/overview) scanner UI.
+- iOS uses [Apple Vision OCR](https://developer.apple.com/documentation/vision) to recognize text from the camera feed.
 
 ## Installation
 
@@ -37,7 +31,7 @@ How permission is handled:
 - The library calls `request(PERMISSIONS.*.CAMERA)` before opening the scanner.
 - If the user denies permission, it shows an alert and can take the user to device settings.
 
-Please refere [react-native-permissions](https://www.npmjs.com/package/react-native-permissions) for installation and uses.
+Please refer [react-native-permissions](https://www.npmjs.com/package/react-native-permissions) for installation and uses.
 
 ## Need to declare Camera Permission on Android and iOS native side:
 
@@ -61,16 +55,6 @@ Apple requires a user-facing reason string for camera usage. Add:
 ## Uses
 
 ### Basic
-
-```js
-import { scanPaymentCard } from 'react-native-card-detector';
-
-const card = await scanPaymentCard();
-```
-
-### Recommended (with safe handling)
-
-If permission is denied, `scanPaymentCard()` returns `undefined`. If scanning fails/cancels, it can throw.
 
 ```js
 import { scanPaymentCard } from 'react-native-card-detector';
@@ -99,7 +83,7 @@ const card = await scanPaymentCard({
 const card = await scanPaymentCard({
   scannerText: {
     android: {
-      hint: 'Align the card in the frame',
+      hint: 'Align your card inside the frame',
       toolbarTitle: 'Scan card',
     },
     ios: {
@@ -115,39 +99,43 @@ const card = await scanPaymentCard({
 });
 ```
 
-## Customisation (Props passing) in description with uses
+## Customisation
 
 ### `scanPaymentCard(options?)`
 
 Pass an optional object to customize the permission dialog copy and/or the native scanner UI strings.
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `permission` | `{ title?: string; description?: string }` | `{ title: Camera Permission; description: This app would like to access your camera to scan a payment card. }` | Text used for the alert shown when camera permission is denied.
-
-#### `Android : ScannerText`
-
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `hint` | `string` | `"Align the card in the frame"` | Hint text shown on the scanner screen. |
-| `toolbarTitle` | `string` | `"Scan card"` | Android toolbar title. |
-
-#### `iOS : ScannerText`
-
-| Key | Type | Description |
+| Option | Default | Description |
 |---|---|---|
-| `hint` | `string` | Hint text shown on the scanner screen. |
-| `statusLookingForCardNumber` | `string` | Status while searching for card number. |
-| `statusReadingHoldSteady` | `string` | Status while reading/validating. |
-| `statusNumberFoundLookingForExpiry` | `string` | Status after number found. |
-| `cancel` | `string` | Cancel button label. |
-| `done` | `string` | Done button label. |
-| `torch` | `string` | Torch button label. |
+| permission | { title: Camera Permission; description: This app would like to access your camera to scan a payment card. } | Text used for the alert shown when camera permission is denied.
 
-## Response with description
+### Scanner Text
 
+#### Android & iOS
+| Key | Default | Description |
+|---|---|---|
+| hint | Align your card inside the frame | Hint text shown on the scanner screen. |
+
+#### Android
+
+| Key | Default | Description |
+|---|---|---|
+| toolbarTitle | Scan card | Android Header title. |
+
+#### iOS
+
+| Key | Default | Description |
+|---|---|---|
+| hint | Align your card inside the frame | Hint text shown on the scanner screen. |
+| statusLookingForCardNumber | Looking for card number… | Status while searching for card number. |
+| statusReadingHoldSteady | Reading… hold steady (verifying number) | Status while reading/validating. |
+| statusNumberFoundLookingForExpiry | Number found. Looking for expiry… | Status after number found. |
+| cancel | Cancel | Cancel button label. |
+| done | Done | Done button label. |
+| torch | Torch | Torch button label. |
+
+## Response
 `scanPaymentCard()` resolves to:
-
 ```ts
 type ScanPaymentCardResult = {
   cardNumber: string;
@@ -156,16 +144,8 @@ type ScanPaymentCardResult = {
 };
 ```
 
-In simple terms:
+### Conclusion
 
 - `cardNumber`: only numbers (spaces/dashes removed) and validated, so it’s safer to use in your checkout flow.
 - `cardHolderName`: best-effort name; some cards may not have a readable name, so it can be an empty string.
 - `expirationDate`: best-effort parsing; if it can’t be confidently normalized, the raw value may be returned.
-
-### Error / cancel behaviour
-
-- If camera permission is not granted, an alert is shown and the function returns `undefined`.
-- If the native scanner is canceled, the promise rejects with code `E_CANCELED`.
-- If no card number is detected, the promise rejects with code `E_NO_CARD_NUMBER`.
-- If the card number fails Luhn validation, the promise rejects with code `E_INVALID_CARD_NUMBER`.
-- Other native failures may reject with codes like `E_SCAN_FAILED`, `E_START_FAILED`, `E_NO_ACTIVITY`, or `E_IN_PROGRESS`.

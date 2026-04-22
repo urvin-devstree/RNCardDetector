@@ -22,7 +22,7 @@ class CardScannerModule(private val reactContext: ReactApplicationContext) :
     companion object {
         private const val MODULE_NAME = "CardScannerModule"
         private const val REQUEST_CODE_SCAN_CARD = 49201
-        private const val DEFAULT_HINT = "Align the card in the frame"
+        private const val DEFAULT_HINT = "Align your card inside the frame"
         private const val DEFAULT_TOOLBAR_TITLE = "Scan card"
     }
 
