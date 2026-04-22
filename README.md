@@ -25,3 +25,21 @@ const card = await scanPaymentCard();
 
 Add `NSCameraUsageDescription` to your app `Info.plist`.
 
+## Android permissions
+
+This package declares `android.permission.CAMERA` in its library `AndroidManifest.xml`. Runtime permission is requested automatically when you call `scanPaymentCard()`.
+
+## Permission behavior
+
+By default `scanPaymentCard()` requests camera permission and, if not granted, shows a prompt to open Settings and throws an `E_CANCELED` error.
+
+You can customize the prompt:
+
+```js
+await scanPaymentCard({
+  permission: {
+    title: 'Camera Permission',
+    message: 'Buddy Super would like to access your camera to scan a payment card.',
+  }
+});
+```

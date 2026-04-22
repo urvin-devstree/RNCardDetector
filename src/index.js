@@ -1,6 +1,100 @@
-import { NativeModules, Platform } from 'react-native';
+import { Alert, Linking, NativeModules, PermissionsAndroid, Platform } from 'react-native';
 
 const { CardScannerModule } = NativeModules;
+
+export const CAMERA_PERMISSION_STATUS = Object.freeze({
+  AUTHORIZED: 'authorized',
+  DENIED: 'denied',
+  BLOCKED: 'blocked',
+  RESTRICTED: 'restricted',
+  NOT_DETERMINED: 'notDetermined',
+  UNAVAILABLE: 'unavailable'
+});
+
+export const getCameraPermissionStatus = async () => {
+  if (Platform.OS === 'android') {
+    try {
+      const granted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.CAMERA);
+      return granted ? CAMERA_PERMISSION_STATUS.AUTHORIZED : CAMERA_PERMISSION_STATUS.DENIED;
+    } catch (e) {
+      return CAMERA_PERMISSION_STATUS.UNAVAILABLE;
+    }
+  }
+
+  if (!CardScannerModule?.getCameraPermissionStatus) {
+    return CAMERA_PERMISSION_STATUS.UNAVAILABLE;
+  }
+
+  const status = await CardScannerModule.getCameraPermissionStatus();
+  return status || CAMERA_PERMISSION_STATUS.UNAVAILABLE;
+};
+
+export const requestCameraPermission = async (options = {}) => {
+  if (Platform.OS === 'android') {
+    const rationale = options?.rationale || {
+      title: 'Camera permission',
+      message: 'Allow access to your camera to scan payment cards.',
+      buttonPositive: 'Allow',
+      buttonNegative: 'Not now'
+    };
+
+    try {
+      const result = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.CAMERA,
+        rationale
+      );
+
+      if (result === PermissionsAndroid.RESULTS.GRANTED) return CAMERA_PERMISSION_STATUS.AUTHORIZED;
+      if (result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) return CAMERA_PERMISSION_STATUS.BLOCKED;
+      return CAMERA_PERMISSION_STATUS.DENIED;
+    } catch (e) {
+      return CAMERA_PERMISSION_STATUS.UNAVAILABLE;
+    }
+  }
+
+  if (!CardScannerModule?.requestCameraPermission) {
+    return CAMERA_PERMISSION_STATUS.UNAVAILABLE;
+  }
+
+  const status = await CardScannerModule.requestCameraPermission();
+  return status || CAMERA_PERMISSION_STATUS.UNAVAILABLE;
+};
+
+export const ensureCameraPermission = async (options = {}) => {
+  const current = await getCameraPermissionStatus();
+  if (current === CAMERA_PERMISSION_STATUS.AUTHORIZED) return CAMERA_PERMISSION_STATUS.AUTHORIZED;
+
+  const next = await requestCameraPermission(options);
+  if (next === CAMERA_PERMISSION_STATUS.AUTHORIZED) return CAMERA_PERMISSION_STATUS.AUTHORIZED;
+
+  const promptToOpenSettings = options?.promptToOpenSettings === true;
+  if (promptToOpenSettings) {
+    const title = options?.title || 'Camera Permission';
+    const message =
+      options?.message ||
+      'This app would like to access your camera to scan a payment card.';
+    const cancelText = options?.cancelText || 'Cancel';
+    const okText = options?.okText || 'OK';
+    const openSettingsOnOk = options?.openSettingsOnOk !== false;
+
+    Alert.alert(title, message, [
+      { text: cancelText, style: 'cancel' },
+      {
+        text: okText,
+        isPreferred: true,
+        onPress: () => {
+          if (!openSettingsOnOk) return;
+          Linking.openSettings().catch(() => {});
+        }
+      }
+    ]);
+  }
+
+  const err = new Error('Camera permission not granted');
+  err.code = next === CAMERA_PERMISSION_STATUS.BLOCKED ? 'E_CAMERA_PERMISSION_BLOCKED' : 'E_CAMERA_PERMISSION';
+  err.status = next;
+  throw err;
+};
 
 const digitsOnly = (value) => String(value || '').replace(/\D+/g, '');
 
@@ -63,11 +157,33 @@ const normalizeHolderName = (name) => {
   return raw?.toUpperCase();
 };
 
-export const scanPaymentCard = async () => {
+export const scanPaymentCard = async (options = {}) => {
   if (!CardScannerModule?.scanCard) {
     const err = new Error(`CardScannerModule.scanCard is not available on ${Platform.OS}`);
     err.code = 'E_MODULE_UNAVAILABLE';
     throw err;
+  }
+
+  const shouldRequestPermission = options?.requestPermission !== false;
+  if (shouldRequestPermission) {
+    const permissionOptions = {
+      promptToOpenSettings: true,
+      treatDeniedAsCancel: true,
+      ...(options?.permission || {})
+    };
+
+    try {
+      await ensureCameraPermission(permissionOptions);
+    } catch (e) {
+      const treatDeniedAsCancel = permissionOptions?.treatDeniedAsCancel !== false;
+      if (
+        treatDeniedAsCancel &&
+        (e?.code === 'E_CAMERA_PERMISSION' || e?.code === 'E_CAMERA_PERMISSION_BLOCKED')
+      ) {
+        e.code = 'E_CANCELED';
+      }
+      throw e;
+    }
   }
 
   const result = await CardScannerModule.scanCard();
@@ -114,4 +230,3 @@ export const scanPaymentCard = async () => {
     provider: Platform.OS === 'android' ? 'lens24' : 'vision-ocr'
   };
 };
-
