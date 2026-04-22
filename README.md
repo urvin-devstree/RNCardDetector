@@ -43,3 +43,15 @@ await scanPaymentCard({
   }
 });
 ```
+
+If your permission dialog closes and the Settings prompt doesn’t appear on some devices, you can increase the delay:
+
+```js
+await scanPaymentCard({
+  permission: {
+    title: 'Camera Permission',
+    message: 'Buddy Super would like to access your camera to scan a payment card.',
+    alertDelayMs: 700,
+  }
+});
+```

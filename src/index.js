@@ -1,4 +1,12 @@
-import { Alert, Linking, NativeModules, PermissionsAndroid, Platform } from 'react-native';
+import {
+  Alert,
+  AppState,
+  InteractionManager,
+  Linking,
+  NativeModules,
+  PermissionsAndroid,
+  Platform
+} from 'react-native';
 
 const { CardScannerModule } = NativeModules;
 
@@ -69,6 +77,7 @@ export const ensureCameraPermission = async (options = {}) => {
 
   const promptToOpenSettings = options?.promptToOpenSettings === true;
   if (promptToOpenSettings) {
+    const alertDelayMs = Number.isFinite(options?.alertDelayMs) ? options.alertDelayMs : 350;
     const title = options?.title || 'Camera Permission';
     const message =
       options?.message ||
@@ -77,8 +86,8 @@ export const ensureCameraPermission = async (options = {}) => {
     const okText = options?.okText || 'OK';
     const openSettingsOnOk = options?.openSettingsOnOk !== false;
 
-    // Permission dialogs can race with JS UI updates; defer the alert to ensure it becomes visible.
-    setTimeout(() => {
+    // OS permission dialogs can race with JS UI updates; wait for app to be active + interactions to finish.
+    const showAlert = () => {
       Alert.alert(title, message, [
         { text: cancelText, style: 'cancel' },
         {
@@ -90,7 +99,23 @@ export const ensureCameraPermission = async (options = {}) => {
           }
         }
       ]);
-    }, 0);
+    };
+
+    const scheduleShow = () => {
+      InteractionManager.runAfterInteractions(() => {
+        setTimeout(showAlert, alertDelayMs);
+      });
+    };
+
+    if (AppState.currentState === 'active') {
+      scheduleShow();
+    } else {
+      const sub = AppState.addEventListener('change', (state) => {
+        if (state !== 'active') return;
+        sub.remove();
+        scheduleShow();
+      });
+    }
   }
 
   const err = new Error('Camera permission not granted');
