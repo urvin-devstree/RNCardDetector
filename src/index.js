@@ -1,153 +1,10 @@
-import {
-  Alert,
-  AppState,
-  InteractionManager,
-  Linking,
-  NativeModules,
-  PermissionsAndroid,
-  Platform
-} from 'react-native';
+import { NativeModules, Alert, Linking } from 'react-native';
+import { PERMISSIONS, request } from 'react-native-permissions';
+import { isAndroid } from './utils';
 
 const { CardScannerModule } = NativeModules;
 
-export const CAMERA_PERMISSION_STATUS = Object.freeze({
-  AUTHORIZED: 'authorized',
-  DENIED: 'denied',
-  BLOCKED: 'blocked',
-  RESTRICTED: 'restricted',
-  NOT_DETERMINED: 'notDetermined',
-  UNAVAILABLE: 'unavailable'
-});
-
-export const getCameraPermissionStatus = async () => {
-  if (Platform.OS === 'android') {
-    try {
-      const granted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.CAMERA);
-      return granted ? CAMERA_PERMISSION_STATUS.AUTHORIZED : CAMERA_PERMISSION_STATUS.DENIED;
-    } catch (e) {
-      return CAMERA_PERMISSION_STATUS.UNAVAILABLE;
-    }
-  }
-
-  if (!CardScannerModule?.getCameraPermissionStatus) {
-    return CAMERA_PERMISSION_STATUS.UNAVAILABLE;
-  }
-
-  const status = await CardScannerModule.getCameraPermissionStatus();
-  return status || CAMERA_PERMISSION_STATUS.UNAVAILABLE;
-};
-
-export const requestCameraPermission = async (options = {}) => {
-  if (Platform.OS === 'android') {
-    const rationale = options?.rationale || {
-      title: 'Camera permission',
-      message: 'Allow access to your camera to scan payment cards.',
-      buttonPositive: 'Allow',
-      buttonNegative: 'Not now'
-    };
-
-    try {
-      const result = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.CAMERA,
-        rationale
-      );
-
-      if (result === PermissionsAndroid.RESULTS.GRANTED) return CAMERA_PERMISSION_STATUS.AUTHORIZED;
-      if (result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) return CAMERA_PERMISSION_STATUS.BLOCKED;
-      return CAMERA_PERMISSION_STATUS.DENIED;
-    } catch (e) {
-      return CAMERA_PERMISSION_STATUS.UNAVAILABLE;
-    }
-  }
-
-  if (!CardScannerModule?.requestCameraPermission) {
-    return CAMERA_PERMISSION_STATUS.UNAVAILABLE;
-  }
-
-  const status = await CardScannerModule.requestCameraPermission();
-  return status || CAMERA_PERMISSION_STATUS.UNAVAILABLE;
-};
-
-export const ensureCameraPermission = async (options = {}) => {
-  const current = await getCameraPermissionStatus();
-  if (current === CAMERA_PERMISSION_STATUS.AUTHORIZED) return CAMERA_PERMISSION_STATUS.AUTHORIZED;
-
-  const next = await requestCameraPermission(options);
-  if (next === CAMERA_PERMISSION_STATUS.AUTHORIZED) return CAMERA_PERMISSION_STATUS.AUTHORIZED;
-
-  const promptToOpenSettings = options?.promptToOpenSettings === true;
-  if (promptToOpenSettings) {
-    const alertDelayMs = Number.isFinite(options?.alertDelayMs) ? options.alertDelayMs : 350;
-    const title = options?.title || 'Camera Permission';
-    const message =
-      options?.message ||
-      'This app would like to access your camera to scan a payment card.';
-    const cancelText = options?.cancelText || 'Cancel';
-    const okText = options?.okText || 'OK';
-    const openSettingsOnOk = options?.openSettingsOnOk !== false;
-
-    // OS permission dialogs can race with JS UI updates; wait for app to be active + interactions to finish.
-    const showAlert = () => {
-      Alert.alert(title, message, [
-        { text: cancelText, style: 'cancel' },
-        {
-          text: okText,
-          isPreferred: true,
-          onPress: () => {
-            if (!openSettingsOnOk) return;
-            Linking.openSettings().catch(() => {});
-          }
-        }
-      ]);
-    };
-
-    const scheduleShow = () => {
-      let didShow = false;
-      const tryShow = () => {
-        if (didShow) return;
-        didShow = true;
-        showAlert();
-      };
-
-      // Fallback: InteractionManager callbacks can be starved by long-lived interactions in some apps.
-      const fallbackDelayMs = Number.isFinite(options?.fallbackDelayMs)
-        ? options.fallbackDelayMs
-        : alertDelayMs;
-      const timeoutId = setTimeout(tryShow, fallbackDelayMs);
-
-      const waitForInteractions = options?.waitForInteractions !== false;
-      if (!waitForInteractions) return;
-
-      InteractionManager.runAfterInteractions(() => {
-        clearTimeout(timeoutId);
-        setTimeout(tryShow, alertDelayMs);
-      });
-    };
-
-    if (AppState.currentState === 'active') {
-      scheduleShow();
-    } else {
-      const sub = AppState.addEventListener('change', (state) => {
-        if (state !== 'active') return;
-        sub.remove();
-        scheduleShow();
-      });
-    }
-  }
-
-  const err = new Error('Camera permission not granted');
-  err.code = next === CAMERA_PERMISSION_STATUS.BLOCKED ? 'E_CAMERA_PERMISSION_BLOCKED' : 'E_CAMERA_PERMISSION';
-  err.status = next;
-  throw err;
-};
-
 const digitsOnly = (value) => String(value || '').replace(/\D+/g, '');
-
-const redactPAN = (panDigits) => {
-  const digits = digitsOnly(panDigits);
-  if (digits.length < 4) return '';
-  return `•••• •••• •••• ${digits.slice(-4)}`;
-};
 
 const luhnCheck = (pan) => {
   const value = digitsOnly(pan);
@@ -202,41 +59,27 @@ const normalizeHolderName = (name) => {
   return raw?.toUpperCase();
 };
 
-export const scanPaymentCard = async (options = {}) => {
-  if (!CardScannerModule?.scanCard) {
-    const err = new Error(`CardScannerModule.scanCard is not available on ${Platform.OS}`);
-    err.code = 'E_MODULE_UNAVAILABLE';
-    throw err;
-  }
+const handleCameraPermissionDenied = (permission) => {
+  Alert.alert(
+    (permission?.title || `Camera Permission`),
+    (permission?.description || `This app would like to access your camera to scan a payment card.`),
+    [{ text: 'Cancel', style: 'cancel' },
+    { text: 'OK', onPress: handleOpenDeviceSettings, isPreferred: true }]
+  );
+};
 
-  const shouldRequestPermission = options?.requestPermission !== false;
-  if (shouldRequestPermission) {
-    const permissionOptions = {
-      promptToOpenSettings: true,
-      treatDeniedAsCancel: true,
-      ...(options?.permission || {})
-    };
+const handleOpenDeviceSettings = () => {
+  Linking.openSettings();
+};
 
-    try {
-      await ensureCameraPermission(permissionOptions);
-    } catch (e) {
-      const treatDeniedAsCancel = permissionOptions?.treatDeniedAsCancel !== false;
-      if (
-        treatDeniedAsCancel &&
-        (e?.code === 'E_CAMERA_PERMISSION' || e?.code === 'E_CAMERA_PERMISSION_BLOCKED')
-      ) {
-        const err = new Error('Camera permission not granted');
-        err.code = 'E_CANCELED';
-        err.status = e?.status;
-        throw err;
-      }
-      throw e;
-    }
-  }
-
-  const result = await CardScannerModule.scanCard();
-
-  const cardNumberRaw = String(result?.cardNumber || '');
+export const scanPaymentCard = async ({ permission }) => {
+  const status = await request(isAndroid ? PERMISSIONS.ANDROID.CAMERA : PERMISSIONS.IOS.CAMERA);
+  if (status != 'granted') {
+    handleCameraPermissionDenied(permission);
+    return;
+  };
+  let response = await CardScannerModule.scanCard();
+  const cardNumberRaw = String(response?.cardNumber || '');
   const cardNumberDigits = digitsOnly(cardNumberRaw);
   if (!cardNumberDigits) {
     const err = new Error('No card number detected. Please try again.');
@@ -249,32 +92,13 @@ export const scanPaymentCard = async (options = {}) => {
     throw err;
   }
 
-  const expiry = normalizeExpiry(result?.expirationDate);
-  const holderName = normalizeHolderName(result?.cardHolderName);
-  const expirationDateRaw = String(result?.expirationDate || '');
-  const expirationDate = expiry?.isValid ? String(expiry?.raw || '') : expirationDateRaw;
-  const cardNumberRedactedRaw = String(result?.cardNumberRedacted || '');
-  const cardNumberRedacted = cardNumberRedactedRaw || redactPAN(cardNumberDigits);
+  const expiry = normalizeExpiry(response?.expirationDate);
+  const holderName = normalizeHolderName(response?.cardHolderName);
 
   return {
     cardNumber: cardNumberDigits,
-    cardNumberRaw,
-    cardNumberDigits,
-    cardNumberRedacted,
-    cardNumberRedactedRaw,
     cardHolderName: holderName,
-    expirationDate,
-    expirationDateRaw,
     expiryMonth: expiry?.month,
-    expiryYear: expiry?.year,
-    expiryFormatted: expiry?.raw,
-    isCardNumberValidLuhn: true,
-    isExpiryValid: expiry?.isValid,
-    missing: {
-      cardNumber: !cardNumberDigits,
-      cardHolderName: !holderName,
-      expiry: !expiry?.isValid
-    },
-    provider: Platform.OS === 'android' ? 'lens24' : 'vision-ocr'
+    expiryYear: expiry?.year
   };
 };

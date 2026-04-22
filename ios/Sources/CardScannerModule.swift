@@ -1,7 +1,6 @@
 import Foundation
 import React
 import UIKit
-import AVFoundation
 
 @objc(CardScannerModule)
 final class CardScannerModule: NSObject, RCTBridgeModule {
@@ -15,26 +14,6 @@ final class CardScannerModule: NSObject, RCTBridgeModule {
   @objc
   static func moduleName() -> String! {
     "CardScannerModule"
-  }
-
-  @objc(getCameraPermissionStatus:rejecter:)
-  func getCameraPermissionStatus(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    let status = AVCaptureDevice.authorizationStatus(for: .video)
-    resolve(Self.mapCameraStatus(status))
-  }
-
-  @objc(requestCameraPermission:rejecter:)
-  func requestCameraPermission(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    let status = AVCaptureDevice.authorizationStatus(for: .video)
-
-    if status == .notDetermined {
-      AVCaptureDevice.requestAccess(for: .video) { granted in
-        resolve(granted ? "authorized" : "denied")
-      }
-      return
-    }
-
-    resolve(Self.mapCameraStatus(status))
   }
 
   @objc(scanCard:rejecter:)
@@ -108,20 +87,5 @@ final class CardScannerModule: NSObject, RCTBridgeModule {
       vc = tab.selectedViewController
     }
     return vc
-  }
-
-  private static func mapCameraStatus(_ status: AVAuthorizationStatus) -> String {
-    switch status {
-    case .authorized:
-      return "authorized"
-    case .denied:
-      return "denied"
-    case .restricted:
-      return "restricted"
-    case .notDetermined:
-      return "notDetermined"
-    @unknown default:
-      return "unavailable"
-    }
   }
 }

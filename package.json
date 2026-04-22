@@ -24,6 +24,8 @@
   "peerDependencies": {
     "react": "*",
     "react-native": ">=0.60.0"
+  },
+  "dependencies": {
+    "react-native-permissions": "^5.5.1"
   }
 }
-

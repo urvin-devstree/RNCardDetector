@@ -13,47 +13,61 @@ Native payment card scanning for React Native:
 }
 ```
 
+This package uses `react-native-permissions` for camera permission. If your app doesn’t already have it, install it too:
+
+```sh
+npm i react-native-permissions
+```
+
 ## Usage
 
 ```js
 import { scanPaymentCard } from 'react-native-card-detector';
 
 const card = await scanPaymentCard();
+// or customize the permission denied dialog:
+// const card = await scanPaymentCard({
+//   permission: {
+//     title: 'Camera Permission',
+//     description: 'We need camera access to scan your payment card.'
+//   }
+// });
 ```
 
-## iOS permissions
+## Permissions (react-native-permissions)
 
-Add `NSCameraUsageDescription` to your app `Info.plist`.
+This library requests the camera permission using `react-native-permissions`.
 
-## Android permissions
+### iOS
 
-This package declares `android.permission.CAMERA` in its library `AndroidManifest.xml`. Runtime permission is requested automatically when you call `scanPaymentCard()`.
+1) Add `NSCameraUsageDescription` to your app `Info.plist`.
 
-## Permission behavior
+2) Enable the Camera permission handler in your app `ios/Podfile`:
 
-By default `scanPaymentCard()` requests camera permission and, if not granted, shows a prompt to open Settings and throws an `E_CANCELED` error (so you can ignore it the same way you ignore user cancel).
+```rb
+def node_require(script)
+  # Resolve script with node to allow for hoisting
+  require Pod::Executable.execute_command(
+    'node',
+    ['-p', "require.resolve('#{script}', {paths: [process.argv[1]]})", __dir__]
+  ).strip
+end
 
-You can customize the prompt:
+node_require('react-native-permissions/scripts/setup.rb')
 
-```js
-await scanPaymentCard({
-  permission: {
-    title: 'Camera Permission',
-    message: 'Buddy Super would like to access your camera to scan a payment card.',
-  }
-});
+setup_permissions([
+  'Camera'
+])
 ```
 
-If your permission dialog closes and the Settings prompt doesn’t appear on some devices, you can increase the delay:
+Then run `npx pod-install` (or `cd ios && pod install`).
 
-```js
-await scanPaymentCard({
-  permission: {
-    title: 'Camera Permission',
-    message: 'Buddy Super would like to access your camera to scan a payment card.',
-    alertDelayMs: 700,
-    // If your app has long-lived interactions, you can disable the interaction wait:
-    // waitForInteractions: false,
-  }
-});
+### Android
+
+Add the camera permission to your app `android/app/src/main/AndroidManifest.xml`:
+
+```xml
+<uses-permission android:name="android.permission.CAMERA" />
 ```
+
+The permission is requested at runtime via `react-native-permissions`.
