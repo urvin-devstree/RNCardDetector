@@ -77,17 +77,20 @@ export const ensureCameraPermission = async (options = {}) => {
     const okText = options?.okText || 'OK';
     const openSettingsOnOk = options?.openSettingsOnOk !== false;
 
-    Alert.alert(title, message, [
-      { text: cancelText, style: 'cancel' },
-      {
-        text: okText,
-        isPreferred: true,
-        onPress: () => {
-          if (!openSettingsOnOk) return;
-          Linking.openSettings().catch(() => {});
+    // Permission dialogs can race with JS UI updates; defer the alert to ensure it becomes visible.
+    setTimeout(() => {
+      Alert.alert(title, message, [
+        { text: cancelText, style: 'cancel' },
+        {
+          text: okText,
+          isPreferred: true,
+          onPress: () => {
+            if (!openSettingsOnOk) return;
+            Linking.openSettings().catch(() => {});
+          }
         }
-      }
-    ]);
+      ]);
+    }, 0);
   }
 
   const err = new Error('Camera permission not granted');
@@ -180,7 +183,10 @@ export const scanPaymentCard = async (options = {}) => {
         treatDeniedAsCancel &&
         (e?.code === 'E_CAMERA_PERMISSION' || e?.code === 'E_CAMERA_PERMISSION_BLOCKED')
       ) {
-        e.code = 'E_CANCELED';
+        const err = new Error('Camera permission not granted');
+        err.code = 'E_CANCELED';
+        err.status = e?.status;
+        throw err;
       }
       throw e;
     }

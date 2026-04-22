@@ -31,7 +31,7 @@ This package declares `android.permission.CAMERA` in its library `AndroidManifes
 
 ## Permission behavior
 
-By default `scanPaymentCard()` requests camera permission and, if not granted, shows a prompt to open Settings and throws an `E_CANCELED` error.
+By default `scanPaymentCard()` requests camera permission and, if not granted, shows a prompt to open Settings and throws an `E_CANCELED` error (so you can ignore it the same way you ignore user cancel).
 
 You can customize the prompt:
 
