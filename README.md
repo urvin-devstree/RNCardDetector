@@ -5,10 +5,11 @@ Native payment card scanning for React Native:
 - Android: Lens24 SDK
 - iOS: Apple Vision OCR (camera + text recognition)
 
-## Install (GitHub)
+## Installation
 
-```json
-"react-native-card-detector": "github:urvin-devstree/RNCardDetector"
+```js
+npm i react-native-card-detector
+cd ios; pod install; cd ..
 ```
 
 This package uses `react-native-permissions` for camera permission. If your app doesn’t already have it, install it too:

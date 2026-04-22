@@ -1,8 +1,12 @@
 {
   "name": "react-native-card-detector",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Payment card scanning for React Native (Android Lens24 + iOS Vision OCR).",
   "main": "src/index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/urvin-devstree/RNCardDetector"
+  },
   "react-native": "src/index.js",
   "files": [
     "src",
@@ -20,7 +24,12 @@
     "scanner",
     "ocr"
   ],
-  "license": "UNLICENSED",
+  "author": "Urvin",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/urvin-devstree/RNCardDetector/issues"
+  },
+  "homepage": "https://github.com/urvin-devstree/RNCardDetector/blob/main/README.md",
   "peerDependencies": {
     "react": "*",
     "react-native": ">=0.60.0"
