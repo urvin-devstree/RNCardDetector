@@ -1,0 +1,117 @@
+import { NativeModules, Platform } from 'react-native';
+
+const { CardScannerModule } = NativeModules;
+
+const digitsOnly = (value) => String(value || '').replace(/\D+/g, '');
+
+const redactPAN = (panDigits) => {
+  const digits = digitsOnly(panDigits);
+  if (digits.length < 4) return '';
+  return `•••• •••• •••• ${digits.slice(-4)}`;
+};
+
+const luhnCheck = (pan) => {
+  const value = digitsOnly(pan);
+  if (value.length < 12) return false;
+  let sum = 0;
+  let shouldDouble = false;
+  for (let i = value.length - 1; i >= 0; i--) {
+    let digit = Number(value[i]);
+    if (Number.isNaN(digit)) return false;
+    if (shouldDouble) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+    shouldDouble = !shouldDouble;
+  }
+  return sum % 10 == 0;
+};
+
+const normalizeExpiry = (expirationDate) => {
+  const raw = String(expirationDate || '').trim();
+  const match = raw.match(/^(\d{1,2})\s*[/\-]\s*(\d{2,4})$/);
+  let month = null;
+  let year = null;
+  if (match) {
+    month = Number(match[1]);
+    year = Number(match[2]);
+  } else {
+    const digits = raw?.replace(/\D+/g, '');
+    if (digits?.length == 4) {
+      month = Number(digits?.slice(0, 2));
+      year = Number(digits?.slice(2, 4));
+    } else if (digits?.length === 6) {
+      month = Number(digits?.slice(0, 2));
+      year = Number(digits?.slice(2, 6));
+    }
+  }
+  if (month == null || year == null) return { raw, month: null, year: null, isValid: false };
+  if (!Number.isFinite(month) || month < 1 || month > 12) return { raw, month: null, year: null, isValid: false };
+  if (year < 100) year += 2000;
+  if (!Number.isFinite(year) || year < 2000 || year > 2100) return { raw, month, year: null, isValid: false };
+  return { raw: `${String(month).padStart(2, '0')}/${String(year).slice(-2)}`, month, year, isValid: true };
+};
+
+const normalizeHolderName = (name) => {
+  if (/\d/.test(String(name || ''))) return '';
+  const raw = String(name || '')
+    ?.replace(/[^A-Za-z\s.'-]+/g, ' ')
+    ?.replace(/\s+/g, ' ')
+    ?.trim();
+  if (!raw) return '';
+  return raw?.toUpperCase();
+};
+
+export const scanPaymentCard = async () => {
+  if (!CardScannerModule?.scanCard) {
+    const err = new Error(`CardScannerModule.scanCard is not available on ${Platform.OS}`);
+    err.code = 'E_MODULE_UNAVAILABLE';
+    throw err;
+  }
+
+  const result = await CardScannerModule.scanCard();
+
+  const cardNumberRaw = String(result?.cardNumber || '');
+  const cardNumberDigits = digitsOnly(cardNumberRaw);
+  if (!cardNumberDigits) {
+    const err = new Error('No card number detected. Please try again.');
+    err.code = 'E_NO_CARD_NUMBER';
+    throw err;
+  }
+  if (!luhnCheck(cardNumberDigits)) {
+    const err = new Error('Invalid card number detected. Please try again.');
+    err.code = 'E_INVALID_CARD_NUMBER';
+    throw err;
+  }
+
+  const expiry = normalizeExpiry(result?.expirationDate);
+  const holderName = normalizeHolderName(result?.cardHolderName);
+  const expirationDateRaw = String(result?.expirationDate || '');
+  const expirationDate = expiry?.isValid ? String(expiry?.raw || '') : expirationDateRaw;
+  const cardNumberRedactedRaw = String(result?.cardNumberRedacted || '');
+  const cardNumberRedacted = cardNumberRedactedRaw || redactPAN(cardNumberDigits);
+
+  return {
+    cardNumber: cardNumberDigits,
+    cardNumberRaw,
+    cardNumberDigits,
+    cardNumberRedacted,
+    cardNumberRedactedRaw,
+    cardHolderName: holderName,
+    expirationDate,
+    expirationDateRaw,
+    expiryMonth: expiry?.month,
+    expiryYear: expiry?.year,
+    expiryFormatted: expiry?.raw,
+    isCardNumberValidLuhn: true,
+    isExpiryValid: expiry?.isValid,
+    missing: {
+      cardNumber: !cardNumberDigits,
+      cardHolderName: !holderName,
+      expiry: !expiry?.isValid
+    },
+    provider: Platform.OS === 'android' ? 'lens24' : 'vision-ocr'
+  };
+};
+
