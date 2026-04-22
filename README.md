@@ -52,6 +52,8 @@ await scanPaymentCard({
     title: 'Camera Permission',
     message: 'Buddy Super would like to access your camera to scan a payment card.',
     alertDelayMs: 700,
+    // If your app has long-lived interactions, you can disable the interaction wait:
+    // waitForInteractions: false,
   }
 });
 ```

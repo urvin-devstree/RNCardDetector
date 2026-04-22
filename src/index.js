@@ -102,8 +102,25 @@ export const ensureCameraPermission = async (options = {}) => {
     };
 
     const scheduleShow = () => {
+      let didShow = false;
+      const tryShow = () => {
+        if (didShow) return;
+        didShow = true;
+        showAlert();
+      };
+
+      // Fallback: InteractionManager callbacks can be starved by long-lived interactions in some apps.
+      const fallbackDelayMs = Number.isFinite(options?.fallbackDelayMs)
+        ? options.fallbackDelayMs
+        : alertDelayMs;
+      const timeoutId = setTimeout(tryShow, fallbackDelayMs);
+
+      const waitForInteractions = options?.waitForInteractions !== false;
+      if (!waitForInteractions) return;
+
       InteractionManager.runAfterInteractions(() => {
-        setTimeout(showAlert, alertDelayMs);
+        clearTimeout(timeoutId);
+        setTimeout(tryShow, alertDelayMs);
       });
     };
 
